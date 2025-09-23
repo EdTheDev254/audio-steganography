@@ -1,0 +1,187 @@
+import wave
+
+def analyze_wav_capacity(wav_file_path):
+    """
+    Analyzes a WAV file to show its properties and calculates the maximum
+    data that can be hidden within it.
+    """
+    try:
+        with wave.open(wav_file_path, 'rb') as song:
+            # --- Get Audio Properties ---
+            n_channels = song.getnchannels()
+            samp_width = song.getsampwidth()  # in bytes
+            frame_rate = song.getframerate()
+            n_frames = song.getnframes()
+            
+            # --- Calculate Derived Information ---
+            duration_in_seconds = n_frames / float(frame_rate)
+            bit_depth = samp_width * 8
+            channel_str = "Stereo" if n_channels == 2 else "Mono"
+            
+            # This is the correct calculation for the total raw audio data size in bytes
+            total_audio_bytes = n_frames * n_channels * samp_width
+            
+            # --- Calculate Storage Capacity ---
+            header_size = 32  # 32 bits for storing the message length
+            available_bits_for_message = total_audio_bytes - header_size
+            max_bytes = available_bits_for_message // 8
+
+            if max_bytes <= 0:
+                print("Error: File is too short to hide any data.")
+                return 0
+
+            if max_bytes > 1024 * 1024:
+                readable_size = f"{max_bytes / (1024*1024):.2f} MB"
+            elif max_bytes > 1024:
+                readable_size = f"{max_bytes / 1024:.2f} KB"
+            else:
+                readable_size = f"{max_bytes} bytes"
+
+            # --- Print the Report ---
+            print("-" * 40)
+            print(f"Analysis Report for: '{wav_file_path}'")
+            print(f"  - Channels: {n_channels} ({channel_str})")
+            print(f"  - Sample Rate: {frame_rate:,} Hz")
+            print(f"  - Bit Depth: {bit_depth}-bit")
+            print(f"  - Duration: {duration_in_seconds:.2f} seconds")
+            print(f"  - Raw Audio Size: {total_audio_bytes:,} bytes")
+            print("-" * 40)
+            print(f"Maximum Storage Capacity: {max_bytes:,} bytes ({readable_size})")
+            print("-" * 40)
+            return max_bytes
+            
+    except FileNotFoundError:
+        print(f"Error: The file '{wav_file_path}' was not found.")
+        return None
+    except wave.Error as e:
+        print(f"Error: Not a valid WAV file or file is corrupted. Details: {e}")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
+
+def hide_data_in_wav(input_wav_path, output_wav_path, secret_message):
+    """
+    Hides a secret message in a WAV file using the interleaved LSB method.
+    """
+    print("Hiding message...")
+    try:
+        with wave.open(input_wav_path, mode='rb') as song:
+            frames = bytearray(song.readframes(song.getnframes()))
+            params = song.getparams()
+            
+        message_bytes = secret_message.encode('utf-8')
+        binary_message = ''.join(f'{byte:08b}' for byte in message_bytes)
+        message_length_bits = len(binary_message)
+        length_header = f'{message_length_bits:032b}'
+        
+        total_frames_bytes = len(frames)
+        header_size = 32
+        
+        if (header_size + message_length_bits) > total_frames_bytes:
+            raise ValueError("Error: The message is too long for this audio file.")
+
+        # Embed the header
+        for i in range(header_size):
+            if length_header[i] == '1':
+                frames[i] |= 1
+            else:
+                frames[i] &= 254
+        
+        # Embed the message body (interleaved)
+        frames_for_body = total_frames_bytes - header_size
+        step = frames_for_body // message_length_bits
+        
+        print(f"Using a step rate of {step} to interleave data.")
+        frame_index = header_size
+        for bit in binary_message:
+            if bit == '1':
+                frames[frame_index] |= 1
+            else:
+                frames[frame_index] &= 254
+            frame_index += step
+
+        with wave.open(output_wav_path, 'wb') as fd:
+            fd.setparams(params)
+            fd.writeframes(frames)
+            
+        print(f"Message hidden successfully in '{output_wav_path}'")
+
+    except FileNotFoundError:
+        print(f"Error: The file '{input_wav_path}' was not found.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+def extract_data_from_wav(input_wav_path):
+    """
+    Extracts a message from a WAV file hidden with the interleaved method.
+    """
+    print("Extracting message...")
+    try:
+        with wave.open(input_wav_path, mode='rb') as song:
+            frames = song.readframes(song.getnframes())
+            
+            header_size = 32
+            if len(frames) < header_size:
+                return "Error: File is too short to contain a valid header."
+
+            length_bits = "".join(str(byte & 1) for byte in frames[:header_size])
+            message_length_bits = int(length_bits, 2)
+
+            frames_for_body = len(frames) - header_size
+            if message_length_bits == 0:
+                return "Message length is zero, nothing to extract."
+            if message_length_bits > frames_for_body:
+                return "Error: Message length in header is larger than the file size."
+            
+            step = frames_for_body // message_length_bits
+
+            extracted_bits = []
+            frame_index = header_size
+            for _ in range(message_length_bits):
+                extracted_bits.append(str(frames[frame_index] & 1))
+                frame_index += step
+            
+            binary_message = "".join(extracted_bits)
+            message_bytes = bytearray(int(binary_message[i:i+8], 2) for i in range(0, len(binary_message), 8))
+            message = message_bytes.decode('utf-8', errors='ignore')
+            
+            return message
+
+    except FileNotFoundError:
+        return f"Error: The file '{input_wav_path}' was not found."
+    except Exception as e:
+        return f"An error occurred: {e}"
+
+# --- Main Program ---
+if __name__ == '__main__':
+    while True:
+        choice = input("Do you want to (e)ncode or (d)ecode a message? (e/d): ").lower()
+        if choice in ['e', 'd']:
+            break
+        print("Invalid choice. Please enter 'e' or 'd'.")
+
+    if choice == 'e':
+        carrier_file = input("Enter the path to the carrier WAV file (e.g., carrier.wav): ")
+        
+        max_bytes = analyze_wav_capacity(carrier_file)
+        if max_bytes is not None and max_bytes > 0:
+            output_file = input("Enter the path for the output WAV file (e.g., output.wav): ")
+            
+            secret_message = """In the heart of Elizabethan England, a man of humble beginnings would emerge to become the most celebrated writer in the English language, a playwright whose genius would transcend time and resonate through the centuries. This is the story of William Shakespeare, a name synonymous with literary greatness.
+Born in the bustling market town of Stratford-upon-Avon in April 1564, William was the son of John Shakespeare, a glove-maker and prominent town official, and Mary Arden, the daughter of a prosperous farmer."""
+            
+            message_byte_count = len(secret_message.encode('utf-8'))
+            print(f"\nUsing the secret message (UTF-8 size: {message_byte_count} bytes).")
+
+            if message_byte_count > max_bytes:
+                print(f"Warning: Your message is {message_byte_count} bytes long, but only {max_bytes} can be hidden.")
+            else:
+                hide_data_in_wav(carrier_file, output_file, secret_message)
+                
+    elif choice == 'd':
+        stego_file = input("Enter the path to the WAV file with the hidden message (e.g., output.wav): ")
+        hidden_message = extract_data_from_wav(stego_file)
+        print(f"\nSecret message found:\n---")
+        print(hidden_message)
+        print("---")
