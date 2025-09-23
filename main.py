@@ -7,22 +7,18 @@ def analyze_wav_capacity(wav_file_path):
     """
     try:
         with wave.open(wav_file_path, 'rb') as song:
-            # --- Get Audio Properties ---
             n_channels = song.getnchannels()
-            samp_width = song.getsampwidth()  # in bytes
+            samp_width = song.getsampwidth()
             frame_rate = song.getframerate()
             n_frames = song.getnframes()
             
-            # --- Calculate Derived Information ---
             duration_in_seconds = n_frames / float(frame_rate)
             bit_depth = samp_width * 8
             channel_str = "Stereo" if n_channels == 2 else "Mono"
             
-            # This is the correct calculation for the total raw audio data size in bytes
             total_audio_bytes = n_frames * n_channels * samp_width
             
-            # --- Calculate Storage Capacity ---
-            header_size = 32  # 32 bits for storing the message length
+            header_size = 32
             available_bits_for_message = total_audio_bytes - header_size
             max_bytes = available_bits_for_message // 8
 
@@ -37,7 +33,6 @@ def analyze_wav_capacity(wav_file_path):
             else:
                 readable_size = f"{max_bytes} bytes"
 
-            # --- Print the Report ---
             print("-" * 40)
             print(f"Analysis Report for: '{wav_file_path}'")
             print(f"  - Channels: {n_channels} ({channel_str})")
@@ -172,15 +167,19 @@ if __name__ == '__main__':
 Born in the bustling market town of Stratford-upon-Avon in April 1564, William was the son of John Shakespeare, a glove-maker and prominent town official, and Mary Arden, the daughter of a prosperous farmer.[1] His father's civic standing likely afforded William a place at the local King Edward VI Grammar School, where he would have received a rigorous education in Latin and classical literature, laying the foundation for his future literary endeavors.[2]
 In 1582, at the age of 18, Shakespeare married Anne Hathaway, a woman eight years his senior.[1] Their union was hastened by Anne's pregnancy, and they would go on to have three children: Susanna, and twins Hamnet and Judith.[1] Tragedy would strike the family in 1596 with the death of their only son, Hamnet, at the age of 11, a loss that undoubtedly cast a long shadow over Shakespeare's life and is believed to have influenced some of his later, more somber plays.[1]
 Following the birth of his twins, a period of roughly seven years, from 1585 to 1592, remains largely undocumented, a time scholars refer to as the "lost years."[2] Speculation abounds as to what Shakespeare was doing during this time, with theories ranging from him working as a schoolmaster to him fleeing Stratford after a deer-poaching incident. Whatever the truth, by 1592, he had emerged in the vibrant and competitive theatrical world of London.
-His arrival in the capital was not without its challenges. A bitter rival, Robert Greene, famously derided him as an "upstart Crow, beautified with our feathers." This jealous jab, however, was a clear indication that Shakespeare was already making a name for himself as both an actor and a playwright. His early plays, believed to have been written around this time, included historical dramas like the Henry VI trilogy and Richard III, comedies such as The Taming of the Shrew and The Comedy of Errors, and the bloody tragedy of Titus Andronicus.[3]The 1590s proved to be a pivotal decade for Shakespeare. He became a founding member and the principal playwright of the Lord Chamberlain's Men, an acting company that would become the most successful of its time.[4] This troupe, which included the celebrated actor Richard Burbage, performed at various theaters before eventually building their own iconic playhouse, the Globe Theatre, in 1599.[5] The Globe, an open-air amphitheater on the south bank of the River Thames, became the stage for many of Shakespeare's most famous works.[5]
+His arrival in the capital was not without its challenges. A bitter rival, Robert Greene, famously derided him as an "upstart Crow, beautified with our feathers." This jealous jab, however, was a clear indication that Shakespeare was already making a name for himself as both an actor and a playwright. His early plays, believed to have been written around this time, included historical dramas like the Henry VI trilogy and Richard III, comedies such as The Taming of the Shrew and The Comedy of Errors, and the bloody tragedy of Titus Andronicus.[3]
+The 1590s proved to be a pivotal decade for Shakespeare. He became a founding member and the principal playwright of the Lord Chamberlain's Men, an acting company that would become the most successful of its time.[4] This troupe, which included the celebrated actor Richard Burbage, performed at various theaters before eventually building their own iconic playhouse, the Globe Theatre, in 1599.[5] The Globe, an open-air amphitheater on the south bank of the River Thames, became the stage for many of Shakespeare's most famous works.[5]
 During this period, Shakespeare's writing flourished, and he produced a remarkable string of beloved comedies and histories. Plays like A Midsummer Night's Dream, The Merchant of Venice, Much Ado About Nothing, and As You Like It captivated audiences with their witty wordplay, intricate plots, and memorable characters.[6] He also penned poignant historical dramas such as Richard II, Henry IV, Parts 1 and 2, and Henry V, which explored the complexities of power and politics.[6]
-The turn of the century marked a shift in Shakespeare's writing, as he delved into the depths of human suffering and despair with a series of profound tragedies that are considered the pinnacle of his art. Hamlet, Othello, King Lear, and Macbeth, all written in the early 1600s, are timeless explorations of themes like revenge, jealousy, madness, and ambition.[3] These plays are characterized by their psychological depth, poetic language, and unforgettable tragic heroes.In 1603, following the death of Queen Elizabeth I and the ascension of King James I, the Lord Chamberlain's Men were granted a royal patent and became known as the King's Men, solidifying their status as the preeminent acting company in England.[1] Shakespeare continued to write for the company, and his work from this Jacobean period saw him experiment with genre, producing what are now known as the "romances" or tragicomedies. Plays like The Winter's Tale and The Tempest blend elements of comedy and tragedy, often culminating in themes of forgiveness and reconciliation.[7]
+The turn of the century marked a shift in Shakespeare's writing, as he delved into the depths of human suffering and despair with a series of profound tragedies that are considered the pinnacle of his art. Hamlet, Othello, King Lear, and Macbeth, all written in the early 1600s, are timeless explorations of themes like revenge, jealousy, madness, and ambition.[3] These plays are characterized by their psychological depth, poetic language, and unforgettable tragic heroes.
+In 1603, following the death of Queen Elizabeth I and the ascension of King James I, the Lord Chamberlain's Men were granted a royal patent and became known as the King's Men, solidifying their status as the preeminent acting company in England.[1] Shakespeare continued to write for the company, and his work from this Jacobean period saw him experiment with genre, producing what are now known as the "romances" or tragicomedies. Plays like The Winter's Tale and The Tempest blend elements of comedy and tragedy, often culminating in themes of forgiveness and reconciliation.[7]
 Beyond his dramatic works, Shakespeare was also a masterful poet. In 1609, a collection of his 154 sonnets was published, though many were likely written in the 1590s.[6][8] These intricate and emotionally charged poems explore themes of love, beauty, time, and mortality.[8] The sonnets are largely divided into two sequences: the first addressed to a "Fair Youth," urging him to marry and have children to preserve his beauty, and the second to a "Dark Lady," a mysterious and often tormenting lover.[9] The Shakespearean sonnet, a form consisting of three quatrains and a final couplet in iambic pentameter, became a standard in English poetry, a testament to his influence.[8][10]
 Shakespeare's success in the London theater made him a wealthy man. He was a shrewd businessman, investing in property in both London and his hometown of Stratford. In 1597, he purchased New Place, one of the largest houses in Stratford-upon-Avon, a clear symbol of his elevated social standing.[11] Though his professional life was centered in London, he maintained strong ties to his family and community in Stratford, where he would eventually retire.
-Sometime around 1611, Shakespeare appears to have largely withdrawn from the London stage and returned to Stratford to live the life of a country gentleman.[11] He continued to have business dealings and collaborate with other playwrights, such as John Fletcher, on his final plays, including Henry VIII and The Two Noble Kinsmen.[7]"""
-            
+Sometime around 1611, Shakespeare appears to have largely withdrawn from the London stage and returned to Stratford to live the life of a country gentleman.[11] He continued to have business dealings and collaborate with other playwrights, such as John Fletcher, on his final plays, including Henry VIII and The Two Noble Kinsmen.[7]
+William Shakespeare died on April 23, 1616, at the age of 52.[11] The cause of his death is unknown, though a diary entry from a contemporary suggests it may have been the result of a fever contracted after a night of drinking with fellow playwrights Ben Jonson and Michael Drayton.[12] He was buried in the chancel of the Holy Trinity Church in Stratford-upon-Avon.[11] In his will, he famously left his wife his "second-best bed," a bequest that has been the subject of much speculation but was not necessarily the slight it might seem today.[1]
+Seven years after his death, two of his fellow actors, John Heminges and Henry Condell, compiled and published a collection of his plays known as the First Folio.[7] This volume, which included 36 plays, was instrumental in preserving Shakespeare's work for future generations."""
+
             message_byte_count = len(secret_message.encode('utf-8'))
-            print(f"\nUsing the secret message (UTF-8 size: {message_byte_count} bytes).")
+            print(f"\nMessage to encode contains {len(secret_message):,} characters (UTF-8 size: {message_byte_count:,} bytes).")
 
             if message_byte_count > max_bytes:
                 print(f"Warning: Your message is {message_byte_count} bytes long, but only {max_bytes} can be hidden.")
