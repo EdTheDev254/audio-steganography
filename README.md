@@ -6,12 +6,11 @@ The purpose of this project is to use LSB (Least Significant Bit) encoding to hi
 
 Through experimentation, I discovered a practical threshold where the interleaved method becomes truly effective. A step rate of 100 or more is required to ensure the modifications are sparse enough to be imperceptible. This is the tipping point where the "hiss" somehow dissolves.
 
-# What The Program Does
+# What the Program Does
 
-Imports the Message: Reads the secret message from an external, easily editable Python file (message_container.py), separating the data from the logic.
-Provides a Full Analysis: Before encoding, it inspects the carrier.wav file and reports on its properties: Channels, Sample Rate, Bit Depth, and Duration.
-Calculates Dual-Capacity: It informs the user of two different limits:
-  Absolute Maximum: The total amount of data the file can physically hold.
-  Stealth Capacity: The recommended maximum amount of data that can be hidden while maintaining a step rate of at least 100, ensuring no audible hiss.
-Warnings: If a user tries to hide a message that exceeds the stealth capacity, the program warns them that the result may be audible and asks for confirmation before proceeding.
-
+- **Imports the Message:** Reads the secret message from an external, easily editable Python file (`message_container.py`), separating the data from the program logic.  
+- **Provides a Full Analysis:** Before encoding, it inspects the `carrier.wav` file and reports its properties: Channels, Sample Rate, Bit Depth, and Duration.  
+- **Calculates Dual Capacity:** It informs the user of two different limits:  
+  - **Absolute Maximum:** The total amount of data the file can physically hold.  
+  - **Stealth Capacity:** The recommended maximum data that can be hidden while maintaining a step rate of at least 100, ensuring no audible hiss.  
+- **Warnings:** If the user tries to hide a message that exceeds the stealth capacity, the program warns that the result may be audible and asks for confirmation before proceeding.
