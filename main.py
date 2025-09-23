@@ -4,7 +4,7 @@ from message_container import secret_message
 
 # This constant is based on the discovery that a step rate of 100 or more
 # makes the hidden data imperceptible by spreading the bits far apart.
-STEALTH_STEP_RATE_THRESHOLD = 100
+STEALTH_STEP_RATE_THRESHOLD = 180
 
 def analyze_wav_capacity(wav_file_path):
     """
