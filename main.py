@@ -1,38 +1,55 @@
 import wave
 
+# This constant is based on the discovery that a step rate of 100 or more
+# makes the hidden data imperceptible by spreading the bits far apart.
+STEALTH_STEP_RATE_THRESHOLD = 100
+
 def analyze_wav_capacity(wav_file_path):
     """
-    Analyzes a WAV file to show its properties and calculates the maximum
-    data that can be hidden within it.
+    Analyzes a WAV file to show its properties and calculates both the absolute
+    maximum and the recommended "stealthy" storage capacity.
     """
     try:
         with wave.open(wav_file_path, 'rb') as song:
+            # --- Get Audio Properties ---
             n_channels = song.getnchannels()
-            samp_width = song.getsampwidth()
+            samp_width = song.getsampwidth()  # in bytes
             frame_rate = song.getframerate()
             n_frames = song.getnframes()
             
+            # --- Calculate Derived Information ---
             duration_in_seconds = n_frames / float(frame_rate)
             bit_depth = samp_width * 8
             channel_str = "Stereo" if n_channels == 2 else "Mono"
             
+            # This is the correct calculation for the total raw audio data size in bytes
             total_audio_bytes = n_frames * n_channels * samp_width
             
-            header_size = 32
-            available_bits_for_message = total_audio_bytes - header_size
-            max_bytes = available_bits_for_message // 8
+            # --- Calculate Storage Capacity ---
+            header_size = 32  # 32 bits for storing the message length
+            available_bytes = total_audio_bytes - header_size
 
-            if max_bytes <= 0:
+            # 1. Calculate Absolute Maximum Capacity
+            abs_max_bytes = available_bytes // 8
+            
+            # 2. Calculate Recommended Stealth Capacity
+            # This is the max bytes you can hide while keeping the step rate >= 100
+            stealth_max_bytes = available_bytes // (8 * STEALTH_STEP_RATE_THRESHOLD)
+
+            if abs_max_bytes <= 0:
                 print("Error: File is too short to hide any data.")
-                return 0
+                return None, None
 
-            if max_bytes > 1024 * 1024:
-                readable_size = f"{max_bytes / (1024*1024):.2f} MB"
-            elif max_bytes > 1024:
-                readable_size = f"{max_bytes / 1024:.2f} KB"
-            else:
-                readable_size = f"{max_bytes} bytes"
+            # --- Formatting for Display ---
+            def format_size(byte_count):
+                if byte_count > 1024 * 1024:
+                    return f"{byte_count / (1024*1024):.2f} MB"
+                elif byte_count > 1024:
+                    return f"{byte_count / 1024:.2f} KB"
+                else:
+                    return f"{byte_count} bytes"
 
+            # --- Print the Full Report ---
             print("-" * 40)
             print(f"Analysis Report for: '{wav_file_path}'")
             print(f"  - Channels: {n_channels} ({channel_str})")
@@ -41,19 +58,20 @@ def analyze_wav_capacity(wav_file_path):
             print(f"  - Duration: {duration_in_seconds:.2f} seconds")
             print(f"  - Raw Audio Size: {total_audio_bytes:,} bytes")
             print("-" * 40)
-            print(f"Maximum Storage Capacity: {max_bytes:,} bytes ({readable_size})")
+            print("CAPACITY REPORT:")
+            print(f"  - Absolute Maximum:  {abs_max_bytes:,} bytes ({format_size(abs_max_bytes)})")
+            print(f"  - Stealth Capacity (No Hiss): {stealth_max_bytes:,} bytes ({format_size(stealth_max_bytes)})")
             print("-" * 40)
-            return max_bytes
+            
+            return abs_max_bytes, stealth_max_bytes
             
     except FileNotFoundError:
         print(f"Error: The file '{wav_file_path}' was not found.")
-        return None
-    except wave.Error as e:
-        print(f"Error: Not a valid WAV file or file is corrupted. Details: {e}")
-        return None
+        return None, None
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
-        return None
+        return None, None
+
 
 def hide_data_in_wav(input_wav_path, output_wav_path, secret_message):
     """
@@ -64,7 +82,7 @@ def hide_data_in_wav(input_wav_path, output_wav_path, secret_message):
         with wave.open(input_wav_path, mode='rb') as song:
             frames = bytearray(song.readframes(song.getnframes()))
             params = song.getparams()
-            
+
         message_bytes = secret_message.encode('utf-8')
         binary_message = ''.join(f'{byte:08b}' for byte in message_bytes)
         message_length_bits = len(binary_message)
@@ -74,38 +92,30 @@ def hide_data_in_wav(input_wav_path, output_wav_path, secret_message):
         header_size = 32
         
         if (header_size + message_length_bits) > total_frames_bytes:
-            raise ValueError("Error: The message is too long for this audio file.")
+            raise ValueError("This should not happen due to prior checks, but: Message too long.")
 
-        # Embed the header
         for i in range(header_size):
-            if length_header[i] == '1':
-                frames[i] |= 1
-            else:
-                frames[i] &= 254
+            if length_header[i] == '1': frames[i] |= 1
+            else: frames[i] &= 254
         
-        # Embed the message body (interleaved)
         frames_for_body = total_frames_bytes - header_size
         step = frames_for_body // message_length_bits
         
         print(f"Using a step rate of {step} to interleave data.")
         frame_index = header_size
         for bit in binary_message:
-            if bit == '1':
-                frames[frame_index] |= 1
-            else:
-                frames[frame_index] &= 254
+            if bit == '1': frames[frame_index] |= 1
+            else: frames[frame_index] &= 254
             frame_index += step
 
         with wave.open(output_wav_path, 'wb') as fd:
             fd.setparams(params)
             fd.writeframes(frames)
-            
         print(f"Message hidden successfully in '{output_wav_path}'")
 
-    except FileNotFoundError:
-        print(f"Error: The file '{input_wav_path}' was not found.")
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"An error occurred during encoding: {e}")
+
 
 def extract_data_from_wav(input_wav_path):
     """
@@ -117,19 +127,17 @@ def extract_data_from_wav(input_wav_path):
             frames = song.readframes(song.getnframes())
             
             header_size = 32
-            if len(frames) < header_size:
-                return "Error: File is too short to contain a valid header."
+            if len(frames) < header_size: return "Error: File is too short."
 
             length_bits = "".join(str(byte & 1) for byte in frames[:header_size])
             message_length_bits = int(length_bits, 2)
 
             frames_for_body = len(frames) - header_size
-            if message_length_bits == 0:
-                return "Message length is zero, nothing to extract."
-            if message_length_bits > frames_for_body:
-                return "Error: Message length in header is larger than the file size."
+            if message_length_bits == 0: return "No message found."
+            if message_length_bits > frames_for_body: return "Error: Corrupted file."
             
             step = frames_for_body // message_length_bits
+            if step == 0: return "Error: Invalid step rate, cannot extract."
 
             extracted_bits = []
             frame_index = header_size
@@ -139,28 +147,27 @@ def extract_data_from_wav(input_wav_path):
             
             binary_message = "".join(extracted_bits)
             message_bytes = bytearray(int(binary_message[i:i+8], 2) for i in range(0, len(binary_message), 8))
-            message = message_bytes.decode('utf-8', errors='ignore')
-            
-            return message
+            return message_bytes.decode('utf-8', errors='ignore')
 
     except FileNotFoundError:
         return f"Error: The file '{input_wav_path}' was not found."
     except Exception as e:
         return f"An error occurred: {e}"
 
+
 # --- Main Program ---
 if __name__ == '__main__':
     while True:
         choice = input("Do you want to (e)ncode or (d)ecode a message? (e/d): ").lower()
-        if choice in ['e', 'd']:
-            break
+        if choice in ['e', 'd']: break
         print("Invalid choice. Please enter 'e' or 'd'.")
 
     if choice == 'e':
         carrier_file = input("Enter the path to the carrier WAV file (e.g., carrier.wav): ")
         
-        max_bytes = analyze_wav_capacity(carrier_file)
-        if max_bytes is not None and max_bytes > 0:
+        abs_max_bytes, stealth_max_bytes = analyze_wav_capacity(carrier_file)
+        
+        if abs_max_bytes is not None and abs_max_bytes > 0:
             output_file = input("Enter the path for the output WAV file (e.g., output.wav): ")
             
             secret_message = """In the heart of Elizabethan England, a man of humble beginnings would emerge to become the most celebrated writer in the English language, a playwright whose genius would transcend time and resonate through the centuries. This is the story of William Shakespeare, a name synonymous with literary greatness.
@@ -176,14 +183,22 @@ Beyond his dramatic works, Shakespeare was also a masterful poet. In 1609, a col
 Shakespeare's success in the London theater made him a wealthy man. He was a shrewd businessman, investing in property in both London and his hometown of Stratford. In 1597, he purchased New Place, one of the largest houses in Stratford-upon-Avon, a clear symbol of his elevated social standing.[11] Though his professional life was centered in London, he maintained strong ties to his family and community in Stratford, where he would eventually retire.
 Sometime around 1611, Shakespeare appears to have largely withdrawn from the London stage and returned to Stratford to live the life of a country gentleman.[11] He continued to have business dealings and collaborate with other playwrights, such as John Fletcher, on his final plays, including Henry VIII and The Two Noble Kinsmen.[7]
 William Shakespeare died on April 23, 1616, at the age of 52.[11] The cause of his death is unknown, though a diary entry from a contemporary suggests it may have been the result of a fever contracted after a night of drinking with fellow playwrights Ben Jonson and Michael Drayton.[12] He was buried in the chancel of the Holy Trinity Church in Stratford-upon-Avon.[11] In his will, he famously left his wife his "second-best bed," a bequest that has been the subject of much speculation but was not necessarily the slight it might seem today.[1]
-Seven years after his death, two of his fellow actors, John Heminges and Henry Condell, compiled and published a collection of his plays known as the First Folio.[7] This volume, which included 36 plays, was instrumental in preserving Shakespeare's work for future generations."""
-
+Seven years after his death, two of his fellow actors, John Heminges and Henry Condell, compiled and published a collection of his plays known as the First Folio.[7] This volume, which included 36 plays, was instrumental in preserving Shakespeare's work for future generations.[7][11] Without their efforts, many of his masterpieces might have been lost to time.
+The legacy of William Shakespeare is immeasurable. His plays have been translated into every major living language and are performed more often than those of any other playwright. His mastery of language, his profound insights into the human condition, and his creation of a vast and varied cast of unforgettable characters have left an indelible mark on literature and theater. From the star-crossed lovers of Romeo and Juliet to the tormented prince of Hamlet, his characters grapple with the timeless and universal struggles of life, love, and loss. His innovative use of language and his coining of numerous words and phrases have enriched the English language itself. Four centuries after his death, the "Bard of Avon" continues to captivate and inspire audiences and readers around the world, a testament to the enduring power of his storytelling. His works are not "of an age, but for all time."""
+            
             message_byte_count = len(secret_message.encode('utf-8'))
-            print(f"\nMessage to encode contains {len(secret_message):,} characters (UTF-8 size: {message_byte_count:,} bytes).")
+            print(f"\nMessage to encode contains {len(secret_message):,} characters ({message_byte_count:,} bytes).")
 
-            if message_byte_count > max_bytes:
-                print(f"Warning: Your message is {message_byte_count} bytes long, but only {max_bytes} can be hidden.")
+            if message_byte_count > abs_max_bytes:
+                print("\nERROR: Message is too large for this file's absolute capacity.")
+            elif message_byte_count > stealth_max_bytes:
+                print("\nWARNING: Message exceeds the recommended stealth capacity.")
+                print("The step rate will be less than 100, which may produce audible noise.")
+                proceed = input("Do you want to continue anyway? (y/n): ").lower()
+                if proceed == 'y':
+                    hide_data_in_wav(carrier_file, output_file, secret_message)
             else:
+                print("\nMessage is within stealth capacity. Proceeding with encoding.")
                 hide_data_in_wav(carrier_file, output_file, secret_message)
                 
     elif choice == 'd':
